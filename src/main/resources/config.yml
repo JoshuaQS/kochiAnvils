@@ -1,0 +1,5 @@
+# KochiAnvils Configuration File
+
+# Lista de mundos donde los yunques irrompibles están activados.
+# Agrega aquí los nombres de los mundos en los que desees que los yunques sean irrompibles.
+enabledWorlds: []

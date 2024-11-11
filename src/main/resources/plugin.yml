@@ -1,0 +1,5 @@
+name: KochiAnvils
+version: 1.0
+main: net.punchpvp.kochianvils.kochiAnvils
+description: Hace que los yunques sean indestructibles en un mundo específico.
+api-version: 1.21
