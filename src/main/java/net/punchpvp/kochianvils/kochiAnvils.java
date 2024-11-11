@@ -10,6 +10,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.AnvilInventory;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -24,40 +25,56 @@ public class kochiAnvils extends JavaPlugin implements Listener {
 
     @Override
     public void onEnable() {
-        // Cargar configuración y mundos habilitados
         loadConfig();
         getServer().getPluginManager().registerEvents(this, this);
     }
 
     @Override
     public void onDisable() {
-        // Guardar configuración
-        saveConfig();
+        saveEnabledWorlds();
     }
 
     private void loadConfig() {
         enabledWorlds = new HashSet<>(getConfig().getStringList("enabledWorlds"));
     }
 
-    public void saveConfig() {
+    private void saveEnabledWorlds() {
         getConfig().set("enabledWorlds", new ArrayList<>(enabledWorlds));
-        saveConfig();
+        super.saveConfig();
     }
 
     @EventHandler
     public void onAnvilUse(InventoryClickEvent event) {
-        // Verificar que el inventario es un yunque y el slot es el de resultado
         if (event.getInventory().getType() == InventoryType.ANVIL && event.getSlotType() == InventoryType.SlotType.RESULT) {
             AnvilInventory anvilInventory = (AnvilInventory) event.getInventory();
             World world = anvilInventory.getLocation().getWorld();
 
-            // Verificar si el mundo tiene yunques irrompibles habilitados
             if (world != null && enabledWorlds.contains(world.getName())) {
-                // Asegurarse de que hay un elemento en la ranura de resultado
+                // El yunque no se desgasta, pero permitimos que la reparación/encantamiento ocurra
                 if (event.getCurrentItem() != null) {
-                    anvilInventory.getLocation().getBlock().setType(Material.ANVIL);
-                    event.setCancelled(true);  // Cancelar para evitar desgaste
+                    // No cancelamos el evento, dejamos que el proceso se complete
+                    // Guardamos temporalmente la ubicación del yunque para restaurar el tipo más adelante
+                    Bukkit.getScheduler().runTaskLater(this, () -> {
+                        if (anvilInventory.getLocation() != null) {
+                            anvilInventory.getLocation().getBlock().setType(Material.ANVIL);
+                        }
+                    }, 1L); // 1 tick después para restaurar el tipo de yunque
                 }
+            }
+        }
+    }
+
+    @EventHandler
+    public void onAnvilClose(InventoryCloseEvent event) {
+        if (event.getInventory().getType() == InventoryType.ANVIL) {
+            AnvilInventory anvilInventory = (AnvilInventory) event.getInventory();
+            World world = anvilInventory.getLocation().getWorld();
+
+            // Restaurar el tipo de yunque cuando se cierra el inventario si está en un mundo habilitado
+            if (world != null && enabledWorlds.contains(world.getName()) && anvilInventory.getLocation() != null) {
+                Bukkit.getScheduler().runTaskLater(this, () -> {
+                    anvilInventory.getLocation().getBlock().setType(Material.ANVIL);
+                }, 1L);
             }
         }
     }
@@ -78,7 +95,7 @@ public class kochiAnvils extends JavaPlugin implements Listener {
                         enabledWorlds.add(worldName);
                         player.sendMessage("§aYunques irrompibles activados en el mundo: " + worldName);
                     }
-                    saveConfig();
+                    saveEnabledWorlds();
                     return true;
 
                 } else if (args[0].equalsIgnoreCase("reload")) {
